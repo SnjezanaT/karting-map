@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8" />
+  <title>Karting staze – referenca RUPA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; background:#0b1020; }
+    #map { height: 100%; width: 100%; }
+
+    .label {
+      background: rgba(15,20,40,0.85);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.2);
+      pointer-events: none; /* da klik na label ne blokira popup */
+    }
+    /* Leaflet tooltips znaju hvatati klikove — ugasimo ih globalno */
+    .leaflet-tooltip { pointer-events: none !important; }
+    .leaflet-tooltip-pane { pointer-events: none !important; }
+    .leaflet-popup-pane { pointer-events: auto; }
+
+    .legend {
+      position:absolute; bottom:16px; left:16px;
+      background:rgba(15,20,40,0.9);
+      color:#fff; padding:10px 12px;
+      border-radius:8px; font-size:12px;
+      border:1px solid rgba(255,255,255,.2)
+    }
+    .dot {display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;}
+    .a {background:#6cc9c8;}
+    .b {background:#6cc9c8;border:2px solid #fff;}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="legend">
+  <div><span class="dot a"></span>1A</div>
+  <div><span class="dot b"></span>2A / 2C</div>
+</div>
+
+<script>
+  const rupa = { name:'RUPA', lat:45.10, lng:14.20 };
+
+  const tracks = [
+    {name:'Rodby Karting Ring', city:'Rodby, DEN', lat:54.66, lng:11.36, grade:'1A', length:1245, licence:'1173 · 19.11.2028', web:'https://xn--rdbykartingring-5tb.dk/en/home', desc:'Otvoren 1993. CIK-FIA EP 2023.'},
+    {name:'Circuit Anthoine Hubert', city:'Angerville, FRA', lat:48.31, lng:2.01, grade:'1A', length:1198, licence:'1163 · 21.02.2028', web:'https://www.askangerville.fr/', desc:'Otvoren 2012. ASK Angerville, EFK AH.'},
+    {name:'Zimmerman Karting Ampfing', city:'Ampfing, GER', lat:48.26, lng:12.42, grade:'2A', length:1063, licence:'1169 · 16.07.2028', web:'https://www.kartshop-ampfing.de/', desc:'Otvoren 1997. DKM, endurance utrke.'},
+    {name:'Birizdokart', city:'Kecskemét, HUN', lat:46.88, lng:19.69, grade:'2C', length:1070, licence:'1171 · 21.08.2028', web:'https://www.birizdokart.hu/en/', desc:'Hotel, events, rental karting.'},
+    {name:'Circuito Internazionale 7 Laghi', city:'Castelletto di B., ITA', lat:45.27, lng:9.09, grade:'1A', length:1256, licence:'1168 · 16.07.2028', web:'https://7laghikartitalia.it/', desc:'Paddock 18.000 m², smještaj.'},
+    {name:'Cremona International Karting', city:'San Martino del Lago, ITA', lat:45.09, lng:10.31, grade:'1A', length:1210, licence:'1166 · 18.03.2028', web:'https://cremonacircuit.it/en/', desc:'FIA Karting World Cup.'},
+    {name:'Kartodromo Val Vibrata', city:'S. Egidio alla Vibrata, ITA', lat:42.82, lng:13.69, grade:'1A', length:1286, licence:'1170 · 29.07.2028', web:'https://kartodromovalvibrata.it/en/', desc:'Povijesni FIA domaćin.'},
+    {name:'Leopard Circuit Viterbo', city:'Viterbo, ITA', lat:42.43, lng:12.10, grade:'1A', length:1294, licence:'1165 · 06.03.2028', web:'https://www.viterbocircuit.com/en', desc:'WSK, IAME, World Cup.'},
+    {name:'Pista Salentina', city:'Ugento, ITA', lat:39.93, lng:18.16, grade:'1A', length:1164, licence:'1380 · 19.02.2028', web:'https://www.pistasalentina.it/', desc:'Noćna rasvjeta, smještaj.'},
+    {name:'South Garda Karting', city:'Lonato, ITA', lat:45.43, lng:10.50, grade:'1A', length:1200, licence:'1162 · 18.02.2028', web:'https://www.southgardakarting.it/', desc:'CIK-FIA EP & SP.'}
+  ];
+
+  const map = L.map('map',{zoomControl:false}).setView([46.5,12],5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap'
+  }).addTo(map);
+
+  // Pojačane granice država (overlay) – u posebnom pane-u ispod markera i bez interakcije
+  map.createPane('bordersPane');
+  map.getPane('bordersPane').style.zIndex = 250; // ispod markerPane (600)
+
+  fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+    .then(r => r.json())
+    .then(geo => {
+      L.geoJSON(geo, {
+        pane: 'bordersPane',
+        interactive: false,
+        style: {
+          color: 'rgba(255,255,255,0.75)',
+          weight: 1.8,
+          opacity: 0.95,
+          fillOpacity: 0
+        }
+      }).addTo(map);
+    })
+    .catch(() => {});
+
+  // RUPA
+  const rupaMarker = L.circleMarker([rupa.lat, rupa.lng],{
+    radius:8,color:'#fff',weight:2,fillColor:'#ffcc00',fillOpacity:1
+  }).addTo(map);
+  rupaMarker.bindTooltip('<b>RUPA</b>',{permanent:true,className:'label',direction:'right',interactive:false});
+  rupaMarker.bindPopup('<b>RUPA</b><br/>Referentna lokacija');
+
+  tracks.forEach(t=>{
+    L.polyline([[rupa.lat,rupa.lng],[t.lat,t.lng]],{color:'#6cc9c8',weight:1,opacity:0.6,interactive:false}).addTo(map);
+
+    const isA = t.grade==='1A';
+    const marker = L.circleMarker([t.lat,t.lng],{
+      radius:10,
+      color:isA?'#6cc9c8':'#fff',
+      weight:isA?1:2,
+      fillColor:'#6cc9c8',
+      fillOpacity:1
+    }).addTo(map);
+
+    marker.bindTooltip(`<b>${t.name}</b> · ${t.grade} · ${t.length} m`,{
+      permanent:true,
+      className:'label',
+      direction:'right',
+      offset:[10,0],
+      interactive:false
+    });
+
+    // klik na marker uvijek otvara popup
+    marker.on('click', () => marker.openPopup());
+
+    // veća "hit zona" (transparentna) da klik radi i kad su točke blizu / mali zoom
+    const hit = L.circleMarker([t.lat,t.lng],{
+      radius:18,
+      color:'rgba(0,0,0,0)',
+      weight:0,
+      fillColor:'rgba(0,0,0,0)',
+      fillOpacity:0,
+      interactive:true
+    }).addTo(map);
+    hit.on('click', () => marker.openPopup());
+    hit.on('mouseover', () => marker.openPopup());
+    hit.on('touchstart', () => marker.openPopup());
+
+    // osiguraj slojeve (linije/borders/hit) ne prekrivaju marker
+    hit.bringToFront();
+    marker.bringToFront();
+
+    marker.bindPopup(`<b>${t.name}</b><br/>${t.city}<br/><br/><b>Razred:</b> ${t.grade}<br/><b>Duljina:</b> ${t.length} m<br/><b>Licenca:</b> ${t.licence}<br/><br/>${t.desc}<br/><br/><a href="${t.web}" target="_blank">Službena web stranica</a>`);
+  });
+</script>
+</body>
+</html>
